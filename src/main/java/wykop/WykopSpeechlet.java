@@ -1,30 +1,21 @@
 package wykop;
 
 
-import com.google.gson.*;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.amazon.speech.slu.Intent;
-import com.amazon.speech.speechlet.IntentRequest;
-import com.amazon.speech.speechlet.LaunchRequest;
-import com.amazon.speech.speechlet.Session;
-import com.amazon.speech.speechlet.SessionEndedRequest;
-import com.amazon.speech.speechlet.SessionStartedRequest;
-import com.amazon.speech.speechlet.Speechlet;
-import com.amazon.speech.speechlet.SpeechletException;
-import com.amazon.speech.speechlet.SpeechletResponse;
+import com.amazon.speech.speechlet.*;
 import com.amazon.speech.ui.PlainTextOutputSpeech;
 import com.amazon.speech.ui.Reprompt;
 import com.amazon.speech.ui.SimpleCard;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import org.jsoup.Jsoup;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-
-import java.io.*;
-
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.URL;
-
-import java.util.List;
+import java.util.Arrays;
 
 
 
@@ -35,7 +26,6 @@ public class WykopSpeechlet implements Speechlet {
 
 
     private static final Logger log = LoggerFactory.getLogger(WykopSpeechlet.class);
-
 
 
     @Override
@@ -51,8 +41,7 @@ public class WykopSpeechlet implements Speechlet {
             throws SpeechletException {
         log.info("onLaunch requestId={}, sessionId={}", request.getRequestId(),
                 session.getSessionId());
-        //String speechOutput = "Welcome to the wykop mirkoblog";
-        //String repromptText = "I can read random or last entries for you. All of them are translated from polish to english";
+
         return getWelcomeResponse();
     }
 
@@ -66,114 +55,85 @@ public class WykopSpeechlet implements Speechlet {
         Intent intent = request.getIntent();
         String intentName = (intent != null) ? intent.getName() : null;
 
-        if("Wykop".equals(intentName)) return getWelcomeResponse();
-        else if("LastEntry".equals(intentName)){
-
-                return getLastEntry();
-
-        }
-            else if("AMAZON.StopIntent".equals(intentName)){
-                PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
+        if ("Wykop".equals(intentName)) return getWelcomeResponse();
+        else if ("LastEntry".equals(intentName)) {
+            return getEntries("LastEntry");
+        } else if ("AllEntries".equals(intentName)) {
+            return getEntries("AllEntries");
+        } else if ("AMAZON.StopIntent".equals(intentName)) {
+            PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
             outputSpeech.setText("Goodbye");
-            return  SpeechletResponse.newTellResponse(outputSpeech);
-        }
-        else{
-            throw  new SpeechletException("Invalid intent");
+            return SpeechletResponse.newTellResponse(outputSpeech);
+        } else {
+            throw new SpeechletException("Invalid intent");
         }
 
     }
 
 
-
     @Override
-    public void onSessionEnded(final SessionEndedRequest sessionEndedRequest,final Session session) throws SpeechletException {
+    public void onSessionEnded(final SessionEndedRequest sessionEndedRequest, final Session session) throws SpeechletException {
         log.info("onSessionEnded requestId={}, sessionId={}", sessionEndedRequest.getRequestId(),
                 session.getSessionId());
     }
 
-    private SpeechletResponse getWelcomeResponse(){
+    private SpeechletResponse getWelcomeResponse() {
 
-        String speechTest= "Welcome to the wykop mirkoblog";
-        // String repromtText = "I can read random or last entries for you. All of them are translated from polish to english";
+        String speechText = "Welcome to the wykop mirkoblog";
 
-        SimpleCard card= new SimpleCard();
+        SimpleCard card = new SimpleCard();
         card.setTitle("Hello");
-        card.setContent(speechTest);
+        card.setContent(speechText);
 
         PlainTextOutputSpeech speech = new PlainTextOutputSpeech();
-        speech.setText(speechTest);
+        speech.setText(speechText);
 
         Reprompt reprompt = new Reprompt();
         reprompt.setOutputSpeech(speech);
 
-        return SpeechletResponse.newTellResponse(speech,card);
+        return SpeechletResponse.newTellResponse(speech, card);
     }
 
-    private SpeechletResponse getLastEntry()  {
+    private SpeechletResponse getEntries(String choice) {
 
-        try{
+        try {
             Reader reader = new InputStreamReader(new URL("http://a.wykop.pl/stream/hot/appkey,NPeaINJAQH").openStream()); //Read the json output
             Gson gson = new GsonBuilder().create();
             DataObject[] obj = gson.fromJson(reader, DataObject[].class);
-            readEntry(obj[0].toString());
 
-        }catch(Exception e){
-            System.out.println(e);
+            if (choice.equals("LastEntry")) {
+                return readEntry(obj[0].toString());
+            } else if (choice.equals("AllEntries")) {
+                return readEntry(Arrays.toString(obj));
+            }
+
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        return null;
+
+        PlainTextOutputSpeech speech = new PlainTextOutputSpeech();
+        speech.setText("We've got a problem with connecting to wykop entries database. Try again later");
+        return SpeechletResponse.newTellResponse(speech);
     }
 
-
-
-
-    private SpeechletResponse readEntry(String entry){
+    private SpeechletResponse readEntry(String entry) {
 
 
         // Create the Simple card content.
         SimpleCard card = new SimpleCard();
         card.setTitle("ReadEntry");
-
         card.setContent(entry);
 
+
+        String parseEntry = Jsoup.parse(entry).text();
+        String result = parseEntry.replaceAll("null", " End of entry");
+
         PlainTextOutputSpeech speech = new PlainTextOutputSpeech();
-       speech.setText(entry);
+        speech.setText(result);
 
-        return SpeechletResponse.newTellResponse(speech, card);
+        return SpeechletResponse.newTellResponse(speech);
     }
 
-    private class DataObject{ //This class should match your json object structure
-        private String body;
-        private List<Item> item;
-        @Override
-        public String toString() {
-            return body + item;
-        }
-    }
-
-    private class Item{ //This is the inner array class
-        public String body;
-
-        @Override
-        public String toString() {
-            return body;
-        }}
-
-    public static void main(String[] args) {
-
-        WykopSpeechlet w = new WykopSpeechlet();
-
-            w.getLastEntry();
-
-    }
-    private SpeechletResponse newAskResponse(String stringOutput, String repromptText) {
-        PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
-        outputSpeech.setText(stringOutput);
-
-        PlainTextOutputSpeech repromptOutputSpeech = new PlainTextOutputSpeech();
-        repromptOutputSpeech.setText(repromptText);
-        Reprompt reprompt = new Reprompt();
-        reprompt.setOutputSpeech(repromptOutputSpeech);
-
-        return SpeechletResponse.newAskResponse(outputSpeech, reprompt);
-    }}
+}
 
