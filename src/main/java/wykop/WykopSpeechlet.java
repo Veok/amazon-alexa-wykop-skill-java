@@ -8,6 +8,7 @@ import com.amazon.speech.ui.Reprompt;
 import com.amazon.speech.ui.SimpleCard;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.memetix.mst.translate.Translate;
 import org.jsoup.Jsoup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
 import java.util.Arrays;
+import com.memetix.mst.language.Language;
 
 
 
@@ -60,7 +62,15 @@ public class WykopSpeechlet implements Speechlet {
             return getEntries("LastEntry");
         } else if ("AllEntries".equals(intentName)) {
             return getEntries("AllEntries");
-        } else if ("AMAZON.StopIntent".equals(intentName)) {
+
+        }
+        else if("TranslatedLastEntry".equals(intentName)){
+            return getEntries("TranslatedLastEntry");
+        }
+        else if("TranslatedAllEntries".equals(intentName)){
+            return getEntries("TranslatedAllEntries");
+        }
+        else if ("AMAZON.StopIntent".equals(intentName)) {
             PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
             outputSpeech.setText("Goodbye");
             return SpeechletResponse.newTellResponse(outputSpeech);
@@ -101,10 +111,17 @@ public class WykopSpeechlet implements Speechlet {
             Gson gson = new GsonBuilder().create();
             DataObject[] obj = gson.fromJson(reader, DataObject[].class);
 
+
             if (choice.equals("LastEntry")) {
-                return readEntry(obj[0].toString());
+                return readEntry(Jsoup.parse(obj[0].toString()).text());
             } else if (choice.equals("AllEntries")) {
-                return readEntry(Arrays.toString(obj));
+                return readEntry(Jsoup.parse(Arrays.toString(obj)).text());
+            }
+            else if(choice.equals("TranslatedAllEntries")){
+                return readEntry(getTranslatedText(Arrays.toString(obj)));
+            }
+            else if(choice.equals("TranslatedLastEntry")){
+                return readEntry(getTranslatedText(obj[0].toString()));
             }
 
 
@@ -125,15 +142,25 @@ public class WykopSpeechlet implements Speechlet {
         card.setTitle("ReadEntry");
         card.setContent(entry);
 
-
-        String parseEntry = Jsoup.parse(entry).text();
-        String result = parseEntry.replaceAll("null", " End of entry");
-
+        String result = entry.replaceAll("null", " End of entry");
+        System.out.println(result);
         PlainTextOutputSpeech speech = new PlainTextOutputSpeech();
         speech.setText(result);
 
         return SpeechletResponse.newTellResponse(speech);
     }
 
+    private String getTranslatedText(String txt) throws Exception{
+
+        Translate.setClientId("Trebboe");
+        Translate.setClientSecret("it2BSt9WjdlmpdN5VyHPTlxOBQU0zrSna8RCqLCJGvM=");
+
+        return Translate.execute(Jsoup.parse(txt).text(), Language.POLISH, Language.ENGLISH);
+    }
+    public static void main(String[] args) {
+
+        WykopSpeechlet w = new WykopSpeechlet();
+        w.getEntries("LastEntry");
+    }
 }
 

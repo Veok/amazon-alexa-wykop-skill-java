@@ -72,6 +72,12 @@
             <artifactId>jsoup</artifactId>
             <version>1.9.2</version>
         </dependency>
+        <dependency>
+            <groupId>com.memetix</groupId>
+            <artifactId>microsoft-translator-java-api</artifactId>
+            <version>0.6.2</version>
+            <type>jar</type>
+        </dependency>
     </dependencies>
 
     <properties>
