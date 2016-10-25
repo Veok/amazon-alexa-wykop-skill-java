@@ -5,7 +5,7 @@ import java.util.List;
 /**
  * Created by L on 10.09.2016.
  */
-class DataObject { //This class should match your json object structure
+class DataObject {
     private String body;
     private List<Item> item;
 

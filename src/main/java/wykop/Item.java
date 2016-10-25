@@ -3,7 +3,7 @@ package wykop;
 /**
  * Created by L on 10.09.2016.
  */
-class Item { //This is the inner array class
+class Item {
 
     private String body;
 
